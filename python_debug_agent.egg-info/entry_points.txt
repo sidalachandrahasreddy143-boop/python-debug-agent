@@ -1,0 +1,2 @@
+[console_scripts]
+dbg = debug_agent.cli:main

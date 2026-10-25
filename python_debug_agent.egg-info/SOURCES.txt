@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+debug_agent/__init__.py
+debug_agent/__main__.py
+debug_agent/cli.py
+debug_agent/core.py
+debug_agent/runner.py
+python_debug_agent.egg-info/PKG-INFO
+python_debug_agent.egg-info/SOURCES.txt
+python_debug_agent.egg-info/dependency_links.txt
+python_debug_agent.egg-info/entry_points.txt
+python_debug_agent.egg-info/requires.txt
+python_debug_agent.egg-info/top_level.txt

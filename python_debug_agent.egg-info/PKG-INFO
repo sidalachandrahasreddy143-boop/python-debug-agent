@@ -1,0 +1,9 @@
+Metadata-Version: 2.4
+Name: python-debug-agent
+Version: 1.0.0
+Summary: A command-line Python debugging and error explanation tool
+License: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+Requires-Dist: pytest>=8; extra == "dev"
