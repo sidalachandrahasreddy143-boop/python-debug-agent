@@ -22,3 +22,15 @@ def test_detects_syntax_error():
 def test_detects_timeout():
     report = debug("while True: pass", timeout=1)
     assert report.status == "timeout"
+
+def test_captures_local_variables():
+    report = debug("""
+total = 100
+count = 0
+print(total / count)
+""")
+
+    assert report.ok is False
+    assert report.error_type == "ZeroDivisionError"
+    assert "total" in report.values
+    assert "count" in report.values
