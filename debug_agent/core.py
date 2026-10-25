@@ -185,11 +185,46 @@ def debug(
     # This is process isolation for crash/timeout handling, NOT a security sandbox.
     with tempfile.TemporaryDirectory(prefix="python_debug_agent_") as temp_dir:
         script_path = Path(temp_dir) / "program.py"
+        wrapper_code = '''
+import json
+import runpy
+import sys
+import traceback
+
+try:
+    runpy.run_path(sys.argv[1], run_name="__main__")
+except BaseException as exc:
+    frames = traceback.extract_tb(exc.__traceback__)
+    snapshots = []
+
+    tb = exc.__traceback__
+    while tb is not None:
+        frame = tb.tb_frame
+        if frame.f_code.co_filename == sys.argv[1]:
+            values = {}
+            for name, value in frame.f_locals.items():
+                try:
+                    values[name] = repr(value)[:500]
+                except Exception:
+                    values[name] = "<unavailable>"
+            snapshots.append({
+                "line": tb.tb_lineno,
+                "function": frame.f_code.co_name,
+                "values": values,
+            })
+        tb = tb.tb_next
+
+    print("__DEBUG_AGENT_SNAPSHOT__" + json.dumps(snapshots), file=sys.stderr)
+    traceback.print_exc()
+    sys.exit(1)
+'''
+        wrapper_path = Path(temp_dir) / "wrapper.py"
+        wrapper_path.write_text(wrapper_code, encoding="utf-8")
         script_path.write_text(code, encoding="utf-8")
 
         try:
             result = subprocess.run(
-                [sys.executable, "-X", "utf8", str(script_path)],
+                [sys.executable, "-X", "utf8", str(wrapper_path), str(script_path)],
                 input=stdin_text,
                 capture_output=True,
                 text=True,
@@ -202,8 +237,34 @@ def debug(
                     "PYTHONIOENCODING": "utf-8",
                 },
             )
+            snapshot_marker = "__DEBUG_AGENT_SNAPSHOT__"
+            snapshot_text = ""
+            cleaned_stderr = result.stderr
+
+            for stderr_line in result.stderr.splitlines():
+                if snapshot_marker in stderr_line:
+                    snapshot_text = stderr_line.split(
+                        snapshot_marker, 1
+                    )[1].strip()
+                    break
+
+            if snapshot_text:
+                try:
+                    snapshots = json.loads(snapshot_text)
+                    for snapshot in snapshots:
+                        if snapshot.get("values"):
+                            report.values = snapshot["values"]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+            cleaned_stderr = "\n".join(
+                line for line in result.stderr.splitlines()
+                if snapshot_marker not in line
+            )
+
             report.stdout = result.stdout
-            report.stderr = result.stderr
+            result_stderr = cleaned_stderr
+            report.stderr = result_stderr
             report.exit_code = result.returncode
 
             if result.returncode != 0:
